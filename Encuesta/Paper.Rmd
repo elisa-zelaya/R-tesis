@@ -1,0 +1,293 @@
+---
+title: "Seminario de Investigacion "
+author: "Elisa Zelaya"
+date: "16/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(caret)
+library(ggplot2)
+```
+##Introducción
+
+En este análisis vamos a estudiar cuales son los factores más importantes al momento de que un estudiante tome la decisión de realizar un cambio de carrera. La información recopilada se obtuvo mediante encuestas aplicadas a los estudiantes de las carreras de ingeniería de la Universidad Autónoma de Honduras, en este estudio se demuestra la importancia de realizar intervenciones efectivas, en momentos puntuales de la vida universitaria del estudiante, a fin de evitar el incremento de la cantidad de cambios de carrera que se dan en la actualidad.
+
+##variables capturadas
+```{r reading_dataset, echo=FALSE}
+survey<-read.csv("encuesta_limpia.csv", sep=",", header=T)
+
+str(survey)
+```
+
+Como se puede observar se capturaron `r nrow(survey)` observaciones y `r length(names(survey))` columnas, dichas columnas fueron el resultado de las preguntas elaboradas en la encuesta quedando clasificadas en las siguientes categorías:
+
+1.Información demográfica
+2.Información Familiar
+3.Orientación Vocacional
+4.Oferta Académica
+5.Registro
+6.Matricula
+7.Habitos de estudiante
+8.Habilidades personales
+
+A continuación realizamos un resumen de nuestras columnas:
+
+```{r}
+summary(survey)
+```
+
+##Tratamiento de columnas
+Uno de los tratamientos importantes a realizar en cuanto a nuestros datos, es la detección de los valores nulos, esto para obtener una información mas solida, siendo esto muy importante al momento de realizar analisis posteriores.
+
+```{r null_values, echo=FALSE}
+
+na.summary<-c()
+
+for (myname in names(survey)){
+  
+  
+  s<-as.data.frame( prop.table(table(is.na(survey[,myname]))))
+  operacion <-s %>% filter(Var1==TRUE) %>% select(Freq)
+  df_temp<-data.frame(column.name=c(myname),      na.percentage=ifelse(length(operacion$Freq)==0,0,operacion$Freq[1]))
+  
+  na.summary<-rbind(na.summary,df_temp)
+}
+
+
+na.summary %>% arrange(-na.percentage) %>% filter(na.percentage >0)
+
+```
+
+Como se puede visualizar el total de valores nulos para nuestro conjunto de datos se encuentra en estas 2 variables.
+
+##Tratamiento de veces cambio carrera
+
+Si analizamos la variable veces_cambio_carrera encontramos la siguiente información:
+
+```{r}
+summary(survey$veces._cambio_carrera)
+```
+
+Tenemos un total de 128 NA's en una columna de nuestro resultado, 
+## Análisis Explicativo
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r imports, message=FALSE, warning=FALSE}
+library(dplyr)
+library(caret)
+library(ggplot2)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r work_directory, message=FALSE, warning=FALSE, echo=FALSE}
+##setwd("/")
+
+#setwd("Users/Casa/Desktop/Archivos/Tesis Elisa/R-tesis/Encuesta/")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r carga_datos, message=FALSE, warning=FALSE, echo=FALSE}
+survey <- read.csv('C:/Users/Casa/Desktop/Archivos/Tesis Elisa/R-tesis/Encuesta/encuesta_transformada_regresion.csv', sep=",")
+
+```
+
+## Tratamiento de Variable dependiente
+
+```{r tratamiento_dependiente, message=FALSE, warning=FALSE}
+survey$cambio_carrera <- as.character(survey$cambio_carrera)
+
+survey[survey$cambio_carrera %in% 'No', 'cambio_carrera'] <- "0"
+survey[survey$cambio_carrera %in% 'Sí', 'cambio_carrera'] <- "1"
+
+survey$cambio_carrera <- as.factor(survey$cambio_carrera)
+```
+
+## Sanity Check
+
+```{r sanity_check, message=FALSE, warning=FALSE}
+summary(survey$cambio_carrera)
+
+```
+
+## Selección de variables
+
+```{r variables_importantes, message=FALSE, warning=FALSE}
+set <- survey[,(names(survey) %in% c(
+    'lugar_residencia',
+    'horas_estudio_diario',
+    'porcentaje_clases_matematica',
+    'satisfaccion_carrera',
+    'estudia_grupo',
+    'motivacion',
+    'trabaja',
+    'edad',
+    'asesoria_universitaria',
+    'pensado_cambio_carrera'
+  )
+)]
+
+dim(set)
+
+names(set)
+```
+
+## Separar la variable dependiente
+
+```{r}
+
+cambio_carrera <- survey[,'cambio_carrera']
+
+
+```
+
+## Regresión logística
+
+```{r}
+model <- glm(cambio_carrera ~ ., data = set, family = "binomial")
+
+```
+
+
+```{r}
+importances <- varImp(model)
+importances$col <- row.names(importances)
+importances <- importances %>% arrange(-Overall)
+importances
+
+```
+
+## Horas de estudio diario
+
+```{r}
+
+ggplot(set) +
+  aes(x = horas_estudio_diario, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+## Asesoría universitaria
+
+```{r}
+
+ggplot(set) +
+  aes(x = asesoria_universitaria, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+
+## Satisfacción carrera
+
+```{r}
+
+ggplot(set) +
+  aes(x = satisfaccion_carrera, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+## Porcentaje Clases Matemáticas
+
+```{r}
+
+ggplot(set) +
+  aes(x = porcentaje_clases_matematica, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+```
+
+## Lugar de residencia
+
+```{r}
+
+ggplot(set) +
+  aes(x = lugar_residencia, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+```
+
+## Edad
+
+```{r}
+
+ggplot(set) +
+  aes(x = edad, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+
+## Estudia en grupo
+
+```{r}
+
+ggplot(set) +
+  aes(x = estudia_grupo, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+
+## Motivación
+
+```{r}
+
+ggplot(set) +
+  aes(x = motivacion, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+
+## Trabaja
+
+```{r}
+
+ggplot(set) +
+  aes(x = trabaja, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+
+## Pensado cambio carrera
+
+```{r}
+
+ggplot(set) +
+  aes(x = pensado_cambio_carrera, fill = factor(cambio_carrera)) +
+  geom_bar(position = "stack") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  scale_fill_manual(values=c("#999999","#E69F00"))
+
+```
+
+
+
